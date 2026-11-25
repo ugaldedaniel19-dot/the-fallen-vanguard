@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Fallen Vanguard: Pi Arena</title>
+    <!-- Official Pi Network SDK -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <!-- Tailwind CSS for Responsive UI & Modals -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Rajdhani & Inter for Tactical UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --pi-gold: #f5a623;
+            --pi-purple: #783a9c;
+            --obsidian: #08090c;
+            --panel-bg: rgba(14, 16, 22, 0.94);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--obsidian);
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .font-tactical {
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 0.05em;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #0b0d11;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--pi-gold);
+            border-radius: 10px;
+        }
+
+        /* Tactical Glow Effects */
+        .pi-gold-glow {
+            box-shadow: 0 0 22px rgba(245, 166, 35, 0.3);
+        }
+        .pi-btn {
+            background: linear-gradient(135deg, #f5a623 0%, #d97706 100%);
+            color: #08090c;
+            font-weight: 700;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .pi-btn:active {
+            transform: scale(0.96);
+        }
+        .pi-purple-btn {
+            background: linear-gradient(135deg, #783a9c 0%, #582875 100%);
+            color: #ffffff;
+            font-weight: 700;
+            transition: transform 0.12s ease;
+        }
+        .pi-purple-btn:active {
+            transform: scale(0.96);
+        }
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(245, 166, 35, 0.28);
+        }
+    </style>
+</head>
+<body class="relative w-full h-full">
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Top Tactical HUD -->
+    <div id="hudTop" class="fixed top-0 left-0 right-0 z-20 p-2.5 sm:p-4 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <!-- Left: Lucía Vitals, Wave & Combo -->
+        <div class="flex items-center gap-2.5 sm:gap-3 glass-panel px-3 py-2 rounded-xl pointer-events-auto">
+            <div>
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <span id="hudWave" class="font-tactical text-amber-400 font-bold text-base sm:text-xl">OLEADA 1</span>
+                    <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30" id="hudKills">0 BAJAS</span>
+                    <span id="hudComboBadge" class="hidden text-[10px] sm:text-xs px-1.5 py-0.5 rounded bg-purple-600/40 text-purple-200 border border-purple-400/40 font-bold">x1</span>
+                </div>
+                <!-- Health Bar -->
+                <div class="w-28 sm:w-44 h-2.5 bg-gray-800 rounded-full overflow-hidden mt-1.5 border border-gray-700">
+                    <div id="hudHealthBar" class="h-full bg-gradient-to-r from-red-600 to-emerald-500 transition-all duration-150" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div class="border-l border-gray-700 pl-2.5 sm:pl-3 text-right">
+                <div class="text-[9px] sm:text-[10px] uppercase text-gray-400" data-i18n="score">PUNTOS</div>
+                <div id="hudScore" class="font-tactical text-base sm:text-xl font-bold text-white">0</div>
+            </div>
+        </div>
+
+        <!-- Right: Audio, Language, Armory, Rankings, Dev Gear & Menu -->
+        <div class="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+            <button onclick="toggleAudio()" id="audioBtn" title="Audio" class="glass-panel hover:border-amber-400 px-2.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-200 transition">
+                🔊
+            </button>
+            <button onclick="toggleLanguage()" id="langBtn" class="glass-panel hover:border-amber-400 px-2.5 py-2 rounded-xl text-xs font-bold text-amber-300 transition">
+                ES
+            </button>
+            <button onclick="openModal('armoryModal')" class="glass-panel hover:border-amber-400 px-2.5 sm:px-3 py-2 rounded-xl flex items-center gap-1 text-xs sm:text-sm font-semibold text-amber-300 transition">
+                <span>⚡</span>
+                <span class="hidden sm:inline" data-i18n="armory">Armería</span>
+            </button>
+            <button onclick="openModal('leaderboardModal')" class="glass-panel hover:border-amber-400 px-2.5 sm:px-3 py-2 rounded-xl flex items-center gap-1 text-xs sm:text-sm font-semibold text-white transition">
+                <span>🏆</span>
+                <span class="hidden sm:inline" data-i18n="rankings">Ranking</span>
+            </button>
+            <button onclick="openModal('devModal')" title="Pi SDK / Backend Config" class="glass-panel hover:border-purple-400 px-2.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-purple-300 transition">
+                ⚙️
+            </button>
+            <button onclick="openModal('menuModal')" class="glass-panel hover:border-amber-400 px-2.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-200 transition">
+                ☰
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Weapon Selector, Reload & Dash Controls -->
+    <div id="hudBottom" class="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-2 glass-panel px-2.5 sm:px-3 py-2 rounded-2xl pointer-events-auto max-w-[96vw]">
+        <button id="wpnBtn0" onclick="selectWeapon(0)" class="px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-amber-500 text-black transition">
+            1. PISTOLA <span id="ammo0" class="block text-[9px] font-normal">12 / ∞</span>
+        </button>
+        <button id="wpnBtn1" onclick="selectWeapon(1)" class="px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-gray-800/90 text-gray-300 border border-gray-700 transition">
+            2. ESCOPETA <span id="ammo1" class="block text-[9px] text-amber-400">24</span>
+        </button>
+        <button id="wpnBtn2" onclick="selectWeapon(2)" class="px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-gray-800/90 text-gray-300 border border-gray-700 transition">
+            3. RIFLE <span id="ammo2" class="block text-[9px] text-amber-400">90</span>
+        </button>
+        <button id="wpnBtn3" onclick="handlePlasmaSelect()" class="px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-purple-950/80 text-purple-300 border border-purple-500/40 transition">
+            4. PLASMA <span id="ammo3" class="block text-[9px] text-amber-400">🔒 0.03 π</span>
+        </button>
+        <button onclick="reloadPistol()" class="px-2.5 py-2 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40 active:scale-95 transition">
+            ↻ R
+        </button>
+        <button id="dashBtn" onclick="triggerTacticalDash()" class="px-2.5 py-2 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-sky-500/20 text-sky-300 border border-sky-400/40 active:scale-95 transition">
+            DASH
+        </button>
+    </div>
+
+    <!-- MAIN ENTRY / PI AUTH MODAL -->
+    <div id="menuModal" class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-5 sm:p-6 pi-gold-glow relative overflow-y-auto max-h-[94vh]">
+            <!-- Header Badges & Environment Toggle -->
+            <div class="flex items-center justify-between gap-2 mb-3">
+                <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    Pi Next Hackathon
+                </span>
+                <button onclick="toggleSandboxMode()" id="sdkModeBadge" class="text-[10px] sm:text-[11px] font-semibold px-2.5 py-1 rounded-full bg-purple-600/30 text-purple-200 border border-purple-400/40 hover:bg-purple-600/50 transition">
+                    Sandbox Mode ⇄
+                </button>
+            </div>
+
+            <h1 class="font-tactical text-3xl sm:text-4xl font-bold text-white leading-tight">
+                THE FALLEN VANGUARD
+                <span class="block text-amber-400 text-xl sm:text-2xl">PI ARENA SURVIVAL</span>
+            </h1>
+
+            <p class="text-gray-300 text-xs sm:text-sm mt-2 leading-relaxed" data-i18n="subtitle">
+                Sobrevive con Lucía a las oleadas en la niebla. Compite en el Torneo Diario de Pioneers y desbloquea armamento con Pi Network.
+            </p>
+
+            <!-- Pioneer Auth Status Card -->
+            <div class="mt-4 p-3.5 rounded-xl bg-black/60 border border-gray-800 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                    <div id="pioneerAvatar" class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-purple-700 flex items-center justify-center font-tactical font-bold text-black text-base">
+                        π
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-gray-400 uppercase" data-i18n="activePioneer">Pioneer Activo</div>
+                        <div id="pioneerUsernameDisplay" class="font-tactical text-base sm:text-lg font-bold text-amber-400">@Guest_Pioneer</div>
+                    </div>
+                </div>
+                <button id="piAuthBtn" onclick="authenticateWithPi()" class="pi-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shadow-lg whitespace-nowrap">
+                    <span>π</span> <span data-i18n="connectPi">Conectar Pi</span>
+                </button>
+            </div>
+
+            <!-- Daily Retention & Tournament Bar -->
+            <div class="grid grid-cols-2 gap-2.5 mt-3">
+                <button onclick="claimDailyCheckIn()" id="dailyCheckInBtn" class="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-left hover:bg-emerald-900/40 transition">
+                    <div class="text-[10px] uppercase text-emerald-400 font-bold"><span data-i18n="streak">Racha</span>: <span id="streakCount">1</span>d</div>
+                    <div class="text-xs font-semibold text-white mt-0.5" id="dailyClaimLabel" data-i18n="claimDaily">🎁 +50 Munición</div>
+                </button>
+                <button onclick="enterDailyTournament()" id="tournamentBtn" class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-left hover:bg-amber-900/30 transition">
+                    <div class="text-[10px] uppercase text-amber-400 font-bold" data-i18n="dailyPool">Torneo Diario Pi</div>
+                    <div class="text-xs font-semibold text-white mt-0.5" id="tournamentLabel">🏆 Pase (0.05 π)</div>
+                </button>
+            </div>
+
+            <!-- Primary Action Buttons -->
+            <div class="mt-4 flex flex-col gap-2.5">
+                <button onclick="startGame()" class="pi-btn w-full py-3.5 rounded-xl font-tactical text-xl tracking-wider uppercase shadow-xl" data-i18n="deployBtn">
+                    ▶ ENTRAR EN LA NIEBLA
+                </button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="openModal('leaderboardModal')" class="py-2.5 rounded-xl bg-gray-800/90 hover:bg-gray-700 text-xs font-semibold text-white border border-gray-700 transition" data-i18n="leaderboardBtn">
+                        🏆 Ranking Global
+                    </button>
+                    <button onclick="shareChallengeLink()" class="pi-purple-btn py-2.5 rounded-xl text-xs border border-purple-400/40 transition" data-i18n="challengeBtn">
+                        🔗 Retar a Pioneer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controls Quick Guide -->
+            <div class="mt-4 pt-3 border-t border-gray-800 text-[10px] sm:text-[11px] text-gray-400 flex flex-col sm:flex-row justify-between gap-1">
+                <span data-i18n="mobileCtrl">📱 Móvil: Stick Izq Mover • Stick Der Apuntar/Disparar</span>
+                <span data-i18n="pcCtrl">💻 PC: WASD • Mouse • R Recargar • Espacio Dash</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARMORY & PI MICRO-TRANSACTIONS MODAL -->
+    <div id="armoryModal" class="fixed inset-0 z-40 hidden items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-6 relative">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-tactical text-2xl font-bold text-amber-400" data-i18n="armoryTitle">⚡ ARMERÍA TÁCTICA PI</h2>
+                <button onclick="closeModal('armoryModal')" class="text-gray-400 hover:text-white text-xl font-bold px-2">✕</button>
+            </div>
+
+            <div class="space-y-3">
+                <!-- Heavy Plasma Rifle & Medkit Pack (0.03 Pi) -->
+                <div class="p-3.5 rounded-xl bg-black/60 border border-purple-500/40 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="font-tactical text-lg font-bold text-purple-300" data-i18n="plasmaPackTitle">Rifle de Plasma + Botiquín</div>
+                        <p class="text-xs text-gray-400" data-i18n="plasmaPackDesc">Disparos perforantes de alta energía + cura 100% HP + Multiplicador x2.</p>
+                    </div>
+                    <button id="buyPlasmaBtn" onclick="purchasePlasmaPack()" class="pi-btn px-3.5 py-2 rounded-xl text-xs whitespace-nowrap">
+                        0.03 π
+                    </button>
+                </div>
+
+                <!-- Tournament Entry Pass (0.05 Pi) -->
+                <div class="p-3.5 rounded-xl bg-black/60 border border-amber-500/40 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="font-tactical text-lg font-bold text-amber-400" data-i18n="tourneyPackTitle">Pase Torneo Diario Pi Arena</div>
+                        <p class="text-xs text-gray-400" data-i18n="tourneyPackDesc">Clasifica oficialmente en el Ranking Diario y duplica tus puntos.</p>
+                    </div>
+                    <button onclick="enterDailyTournament()" class="pi-btn px-3.5 py-2 rounded-xl text-xs whitespace-nowrap">
+                        0.05 π
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-5 text-center">
+                <button onclick="closeModal('armoryModal')" class="w-full py-2.5 rounded-xl bg-gray-800 text-xs font-semibold text-gray-200 hover:bg-gray-700 transition" data-i18n="resumeBtn">
+                    Volver al Combate
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEADERBOARD MODAL (DAILY & ALL-TIME) -->
+    <div id="leaderboardModal" class="fixed inset-0 z-40 hidden items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-6 relative">
+            <div class="flex items-center justify-between mb-2">
+                <div>
+                    <h2 class="font-tactical text-2xl font-bold text-amber-400" data-i18n="rankModalTitle">🏆 RANKING GLOBAL PIONEERS</h2>
+                    <p class="text-xs text-gray-400" id="cloudSyncStatus">Sincronizado en tiempo real • Pi Arena</p>
+                </div>
+                <button onclick="closeModal('leaderboardModal')" class="text-gray-400 hover:text-white text-xl font-bold px-2">✕</button>
+            </div>
+
+            <!-- Tabs: Daily vs All-Time -->
+            <div class="grid grid-cols-2 gap-2 mt-3">
+                <button id="tabDailyBtn" onclick="switchLeaderboardTab('daily')" class="py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition" data-i18n="dailyTab">
+                    Torneo Diario (24h)
+                </button>
+                <button id="tabAllTimeBtn" onclick="switchLeaderboardTab('alltime')" class="py-1.5 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 transition" data-i18n="allTimeTab">
+                    Histórico Global
+                </button>
+            </div>
+
+            <div id="leaderboardList" class="mt-3 max-h-60 overflow-y-auto space-y-2 pr-1">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-gray-800 flex gap-2">
+                <button onclick="shareChallengeLink()" class="pi-purple-btn flex-1 py-2.5 rounded-xl text-xs" data-i18n="inviteFriendsBtn">
+                    🔗 Retar y Ganar Escudo
+                </button>
+                <button onclick="closeModal('leaderboardModal')" class="px-4 py-2.5 rounded-xl bg-gray-800 text-xs font-semibold text-white" data-i18n="closeBtn">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER / TACTICAL REVIVE MODAL -->
+    <div id="gameOverModal" class="fixed inset-0 z-40 hidden items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-6 text-center border-red-500/40">
+            <div class="text-xs uppercase tracking-widest text-red-400 font-bold" data-i18n="downedLabel">Vanguardia Caída</div>
+            <h2 class="font-tactical text-4xl font-bold text-white mt-1" data-i18n="gameOverTitle">HAS SIDO RODEADO</h2>
+
+            <div class="grid grid-cols-3 gap-2 my-5 p-3 rounded-xl bg-black/60 border border-gray-800">
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase" data-i18n="finalScoreLabel">Puntos</div>
+                    <div id="finalScore" class="font-tactical text-xl font-bold text-amber-400">0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase" data-i18n="finalWaveLabel">Oleada</div>
+                    <div id="finalWave" class="font-tactical text-xl font-bold text-white">1</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase" data-i18n="finalKillsLabel">Bajas</div>
+                    <div id="finalKills" class="font-tactical text-xl font-bold text-red-400">0</div>
+                </div>
+            </div>
+
+            <!-- Pi Micro-Payment Tactical Revive Hook (0.02 Pi) -->
+            <button onclick="purchaseTacticalRevive()" class="pi-btn w-full py-3.5 rounded-xl font-tactical text-lg uppercase shadow-lg flex items-center justify-center gap-2">
+                <span>⚡</span> <span data-i18n="reviveBtn">REVIVIR + ONDA DE CHOQUE (0.02 π)</span>
+            </button>
+            <p class="text-[11px] text-gray-400 mt-1.5" data-i18n="reviveDesc">Reanimación instantánea con 100% HP, escudo y explosión expansiva</p>
+
+            <div class="grid grid-cols-2 gap-2.5 mt-4">
+                <button onclick="restartRun()" class="py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-white border border-gray-700" data-i18n="newRunBtn">
+                    ↻ Nueva Partida (Gratis)
+                </button>
+                <button onclick="shareChallengeLink()" class="pi-purple-btn py-2.5 rounded-xl text-xs border border-purple-400/40" data-i18n="shareScoreBtn">
+                    🔗 Compartir Récord
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PI DEVELOPER & BACKEND CONFIGURATION MODAL -->
+    <div id="devModal" class="fixed inset-0 z-40 hidden items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-lg rounded-2xl p-5 sm:p-6 relative max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-tactical text-2xl font-bold text-purple-300">⚙️ PI SDK & SOLOHOST CONFIG</h2>
+                <button onclick="closeModal('devModal')" class="text-gray-400 hover:text-white text-xl font-bold px-2">✕</button>
+            </div>
+
+            <p class="text-xs text-gray-300 leading-relaxed mb-3">
+                Configura el entorno de Pi Network (<strong>Sandbox</strong> para pruebas en Pi Developer Portal o <strong>Mainnet</strong> para producción) y la URL de tu servidor de aprobación de pagos. Si dejas la URL vacía, el juego completará los pagos automáticamente en modo Sandbox/Demo.
+            </p>
+
+            <!-- Sandbox Toggle -->
+            <div class="flex items-center justify-between p-3 rounded-xl bg-black/60 border border-gray-800 mb-3">
+                <div>
+                    <div class="text-xs font-bold text-white">Pi SDK Environment</div>
+                    <div class="text-[11px] text-gray-400" id="devEnvDesc">Actual: Sandbox (Pruebas Hackathon)</div>
+                </div>
+                <button onclick="toggleSandboxMode()" id="devSandboxToggleBtn" class="pi-purple-btn px-3 py-1.5 rounded-lg text-xs">
+                    Cambiar a Mainnet
+                </button>
+            </div>
+
+            <!-- Backend Approval URL Input -->
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-amber-400 mb-1">BACKEND_APPROVAL_URL (Opcional para Mainnet)</label>
+                <div class="flex gap-2">
+                    <input id="backendUrlInput" type="url" placeholder="https://tu-worker.workers.dev/api/pi" class="flex-1 px-3 py-2 rounded-xl bg-black/70 border border-gray-700 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <button onclick="saveBackendUrl()" class="pi-btn px-3.5 py-2 rounded-xl text-xs">Guardar</button>
+                </div>
+            </div>
+
+            <!-- Copyable Cloudflare Worker / Node.js Snippet -->
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[11px] font-bold text-gray-300">Snippet Backend (Cloudflare Worker / Node.js) para /approve y /complete:</span>
+                    <button onclick="copyBackendSnippet()" class="text-[11px] text-amber-400 hover:underline font-semibold">📋 Copiar Código</button>
+                </div>
+                <pre id="backendSnippetCode" class="p-3 rounded-xl bg-black/80 border border-gray-800 text-[10px] text-emerald-300 overflow-x-auto leading-normal">export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const { paymentId, txid } = await req.json();
+    const headers = {
+      "Authorization": `Key ${env.PI_API_KEY}`,
+      "Content-Type": "application/json"
+    };
+    if (url.pathname.endsWith("/approve")) {
+      const r = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/approve`, { method: "POST", headers });
+      return new Response(await r.text(), { status: r.status });
+    }
+    if (url.pathname.endsWith("/complete")) {
+      const r = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
+        method: "POST", headers, body: JSON.stringify({ txid })
+      });
+      return new Response(await r.text(), { status: r.status });
+    }
+    return new Response("Not Found", { status: 404 });
+  }
+};</pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Box -->
+    <div id="toastBox" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-300 max-w-[92vw]">
+        <div id="toastMessage" class="px-4 py-2.5 rounded-xl bg-gray-900/95 border border-amber-400/60 text-amber-300 text-xs sm:text-sm font-semibold shadow-2xl text-center">
+            Notification
+        </div>
+    </div>
+
+    <!-- Firebase Firestore & Game Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        /**
+         * ============================================================================
+         * 1. GLOBAL STATE, LOCALIZATION (ES/EN) & STORAGE
+         * ============================================================================
+         */
+        const AppState = {
+            lang: localStorage.getItem('tfv_lang') || 'es',
+            sandboxMode: localStorage.getItem('tfv_pi_sandbox') !== 'false',
+            backendUrl: localStorage.getItem('tfv_backend_url') || '',
+            piInitialized: false,
+            isPiBrowser: false,
+            pioneerUsername: localStorage.getItem('tfv_pioneer_name') || 'Pioneer_' + Math.floor(1000 + Math.random() * 9000),
+            piUid: null,
+            tournamentEntered: false,
+            plasmaUnlocked: localStorage.getItem('tfv_plasma_unlocked') === 'true',
+            scoreMultiplier: 1,
+            streak: parseInt(localStorage.getItem('tfv_streak') || '1', 10),
+            lastCheckIn: localStorage.getItem('tfv_last_checkin') || '',
+            highScore: parseInt(localStorage.getItem('tfv_highscore') || '0', 10),
+            referralBonusActive: false,
+            leaderboardTab: 'daily',
+            cloudScores: []
+        };
+
+        // Check URL Referral Parameter (?ref=username)
+        const urlParams = new URLSearchParams(window.location.search);
+        const refParam = urlParams.get('ref');
+        if (refParam && refParam !== AppState.pioneerUsername) {
+            AppState.referralBonusActive = true;
+        }
+
+        const I18N = {
+            es: {
+                score: 'PUNTOS',
+                armory: 'Armería',
+                rankings: 'Ranking',
+                subtitle: 'Sobrevive con Lucía a las oleadas en la niebla. Compite en el Torneo Diario de Pioneers y desbloquea armamento con Pi Network.',
+                activePioneer: 'Pioneer Activo',
+                connectPi: 'Conectar Pi',
+                streak: 'Racha',
+                claimDaily: '🎁 +50 Munición',
+                dailyPool: 'Torneo Diario Pi',
+                deployBtn: '▶ ENTRAR EN LA NIEBLA',
+                leaderboardBtn: '🏆 Ranking Global',
+                challengeBtn: '🔗 Retar a Pioneer',
+                mobileCtrl: '📱 Móvil: Stick Izq Mover • Stick Der Apuntar/Disparar',
+                pcCtrl: '💻 PC: WASD • Mouse • R Recargar • Espacio Dash',
+                armoryTitle: '⚡ ARMERÍA TÁCTICA PI',
+                plasmaPackTitle: 'Rifle de Plasma + Botiquín',
+                plasmaPackDesc: 'Disparos perforantes de alta energía + cura 100% HP + Multiplicador x2.',
+                tourneyPackTitle: 'Pase Torneo Diario Pi Arena',
+                tourneyPackDesc: 'Clasifica oficialmente en el Ranking Diario y duplica tus puntos.',
+                resumeBtn: 'Volver al Combate',
+                rankModalTitle: '🏆 RANKING GLOBAL PIONEERS',
+                dailyTab: 'Torneo Diario (24h)',
+                allTimeTab: 'Histórico Global',
+                inviteFriendsBtn: '🔗 Retar y Ganar Escudo',
+                closeBtn: 'Cerrar',
+                downedLabel: 'Vanguardia Caída',
+                gameOverTitle: 'HAS SIDO RODEADO',
+                finalScoreLabel: 'Puntos',
+                finalWaveLabel: 'Oleada',
+                finalKillsLabel: 'Bajas',
+                reviveBtn: 'REVIVIR + ONDA DE CHOQUE (0.02 π)',
+                reviveDesc: 'Reanimación instantánea con 100% HP, escudo y explosión expansiva',
+                newRunBtn: '↻ Nueva Partida (Gratis)',
+                shareScoreBtn: '🔗 Compartir Récord'
+            },
+            en: {
+                score: 'SCORE',
+                armory: 'Armory',
+                rankings: 'Rankings',
+                subtitle: 'Survive endless waves in the fog as Lucía. Compete on the Daily Pioneer Leaderboard and unlock tactical gear with Pi.',
+                activePioneer: 'Active Pioneer',
+                connectPi: 'Connect Pi',
+                streak: 'Streak',
+                claimDaily: '🎁 +50 Ammo',
+                dailyPool: 'Daily Pi Pool',
+                deployBtn: '▶ DEPLOY INTO THE FOG',
+                leaderboardBtn: '🏆 Global Rankings',
+                challengeBtn: '🔗 Challenge Pioneer',
+                mobileCtrl: '📱 Mobile: Left Stick Move • Right Stick Aim/Fire',
+                pcCtrl: '💻 PC: WASD • Mouse • R Reload • Space Dash',
+                armoryTitle: '⚡ VANGUARD PI ARMORY',
+                plasmaPackTitle: 'Heavy Plasma Rifle + Medkit',
+                plasmaPackDesc: 'Piercing plasma bolts + 100% HP restore + 2x Score Multiplier.',
+                tourneyPackTitle: 'Daily Pi Arena Tournament Pass',
+                tourneyPackDesc: 'Officially enter the Daily Leaderboard and double your score.',
+                resumeBtn: 'Resume Combat',
+                rankModalTitle: '🏆 GLOBAL PIONEER RANKINGS',
+                dailyTab: 'Daily Pool (24h)',
+                allTimeTab: 'All-Time Legends',
+                inviteFriendsBtn: '🔗 Challenge & Get Shield',
+                closeBtn: 'Close',
+                downedLabel: 'Vanguard Down',
+                gameOverTitle: 'YOU WERE OVERRUN',
+                finalScoreLabel: 'Score',
+                finalWaveLabel: 'Wave',
+                finalKillsLabel: 'Kills',
+                reviveBtn: 'TACTICAL REVIVE + SHOCKWAVE (0.02 π)',
+                reviveDesc: 'Instant revive with full HP, invulnerability shield & area blast',
+                newRunBtn: '↻ New Run (Free)',
+                shareScoreBtn: '🔗 Share Record'
+            }
+        };
+
+        window.toggleLanguage = function() {
+            AppState.lang = AppState.lang === 'es' ? 'en' : 'es';
+            localStorage.setItem('tfv_lang', AppState.lang);
+            applyTranslations();
+            updateHUD();
+        };
+
+        function applyTranslations() {
+            const dict = I18N[AppState.lang];
+            document.getElementById('langBtn').textContent = AppState.lang.toUpperCase();
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) el.textContent = dict[key];
+            });
+        }
+
+        /**
+         * ============================================================================
+         * 2. FIREBASE FIRESTORE REAL-TIME GLOBAL LEADERBOARD
+         * ============================================================================
+         */
+        let db = null;
+        let auth = null;
+        let currentFirebaseUser = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fallen-vanguard-pi-arena';
+
+        async function initCloudPersistence() {
+            try {
+                if (typeof __firebase_config === 'undefined') {
+                    document.getElementById('cloudSyncStatus').textContent = 'Modo Local / SoloHost listo';
+                    return;
+                }
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    currentFirebaseUser = user;
+                    if (user) {
+                        listenToGlobalLeaderboard();
+                    }
+                });
+            } catch (err) {
+                console.warn('Firestore fallback to local persistence:', err);
+                document.getElementById('cloudSyncStatus').textContent = 'Ranking Local Activo';
+            }
+        }
+
+        function listenToGlobalLeaderboard() {
+            if (!db || !currentFirebaseUser) return;
+            const scoresCol = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            onSnapshot(scoresCol, (snapshot) => {
+                const list = [];
+                snapshot.forEach(docSnap => {
+                    list.push(docSnap.data());
+                });
+                AppState.cloudScores = list;
+                document.getElementById('cloudSyncStatus').textContent = `🟢 En vivo (${list.length} Pioneers)`;
+                if (!document.getElementById('leaderboardModal').classList.contains('hidden')) {
+                    renderLeaderboard();
+                }
+            }, (error) => {
+                console.warn('Leaderboard snapshot error:', error);
+            });
+        }
+
+        async function publishScoreToCloud(score, wave, kills) {
+            const todayKey = new Date().toISOString().slice(0, 10);
+            if (!db || !currentFirebaseUser) return;
+            try {
+                const docId = AppState.pioneerUsername.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const scoreRef = doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', docId);
+                await setDoc(scoreRef, {
+                    name: AppState.pioneerUsername,
+                    score: Math.max(score, AppState.highScore),
+                    wave: wave,
+                    kills: kills,
+                    dayKey: todayKey,
+                    tournament: AppState.tournamentEntered,
+                    updatedAt: Date.now()
+                }, { merge: true });
+            } catch (err) {
+                console.warn('Cloud score sync skipped:', err);
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 3. PI NETWORK SDK INTEGRATION (AUTH, PAYMENTS, SHARE & DEV CONFIG)
+         * ============================================================================
+         */
+        function initPiNetwork() {
+            try {
+                if (typeof window.Pi !== 'undefined') {
+                    window.Pi.init({ version: "2.0", sandbox: AppState.sandboxMode });
+                    AppState.piInitialized = true;
+                    AppState.isPiBrowser = /PiBrowser/i.test(navigator.userAgent);
+                }
+            } catch (err) {
+                console.warn('Pi SDK initialization notice:', err);
+            }
+            updateSDKEnvironmentUI();
+            updateProfileUI();
+        }
+
+        function updateSDKEnvironmentUI() {
+            const envText = AppState.sandboxMode ? 'Sandbox' : 'Mainnet';
+            const browserTag = AppState.isPiBrowser ? 'Pi Browser' : 'Web/Demo';
+            document.getElementById('sdkModeBadge').textContent = `${envText} • ${browserTag} ⇄`;
+            document.getElementById('devEnvDesc').textContent = `Actual: ${envText} (${browserTag})`;
+            document.getElementById('devSandboxToggleBtn').textContent = AppState.sandboxMode ? 'Cambiar a Mainnet' : 'Cambiar a Sandbox';
+            document.getElementById('backendUrlInput').value = AppState.backendUrl;
+        }
+
+        window.toggleSandboxMode = function() {
+            AppState.sandboxMode = !AppState.sandboxMode;
+            localStorage.setItem('tfv_pi_sandbox', AppState.sandboxMode.toString());
+            if (typeof window.Pi !== 'undefined') {
+                window.Pi.init({ version: "2.0", sandbox: AppState.sandboxMode });
+            }
+            updateSDKEnvironmentUI();
+            showToast(AppState.sandboxMode ? '🧪 Pi SDK en modo Sandbox' : '🚀 Pi SDK en modo Mainnet');
+        };
+
+        window.saveBackendUrl = function() {
+            const val = document.getElementById('backendUrlInput').value.trim().replace(/\/$/, '');
+            AppState.backendUrl = val;
+            localStorage.setItem('tfv_backend_url', val);
+            showToast(val ? '✅ Backend URL guardada para pagos reales' : 'ℹ️ URL vacía: usando auto-aprobación Sandbox');
+        };
+
+        window.copyBackendSnippet = function() {
+            const code = document.getElementById('backendSnippetCode').textContent;
+            copyTextToClipboard(code, '📋 Código Backend copiado al portapapeles');
+        };
+
+        function onIncompletePaymentFound(payment) {
+            console.log('Incomplete Pi payment detected:', payment);
+            if (AppState.backendUrl && payment && payment.identifier) {
+                fetch(`${AppState.backendUrl}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        paymentId: payment.identifier,
+                        txid: payment.transaction ? payment.transaction.txid : ''
+                    })
+                }).catch(e => console.warn('Incomplete payment sync error:', e));
+            }
+        }
+
+        window.authenticateWithPi = async function() {
+            if (!AppState.piInitialized || typeof window.Pi === 'undefined') {
+                showToast('Modo Demo Web: Conectado como @' + AppState.pioneerUsername);
+                return;
+            }
+
+            try {
+                showToast(AppState.lang === 'es' ? 'Conectando con Pi Network...' : 'Connecting to Pi Network...');
+                const scopes = ['username', 'payments'];
+                const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+                if (authResult && authResult.user) {
+                    AppState.pioneerUsername = authResult.user.username;
+                    AppState.piUid = authResult.user.uid;
+                    localStorage.setItem('tfv_pioneer_name', AppState.pioneerUsername);
+                    updateProfileUI();
+                    showToast(`✅ Pioneer @${AppState.pioneerUsername} autenticado!`);
+                }
+            } catch (error) {
+                console.warn('Pi Auth fallback:', error);
+                showToast('Fallback Activo: Jugando como @' + AppState.pioneerUsername);
+            }
+        };
+
+        /**
+         * Complete Pi.createPayment workflow supporting both real Server Approval/Completion
+         * and zero-backend Sandbox simulation for immediate SoloHost hackathon testing.
+         */
+        function triggerPiPayment(amount, memo, metadata, onSuccessCallback) {
+            const canUseRealPi = AppState.piInitialized && typeof window.Pi !== 'undefined' && (AppState.isPiBrowser || AppState.backendUrl);
+
+            if (canUseRealPi) {
+                window.Pi.createPayment({
+                    amount: amount,
+                    memo: memo,
+                    metadata: metadata
+                }, {
+                    onReadyForServerApproval: async function(paymentId) {
+                        if (AppState.backendUrl) {
+                            try {
+                                await fetch(`${AppState.backendUrl}/approve`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ paymentId })
+                                });
+                            } catch (err) {
+                                console.error('Server approval error:', err);
+                            }
+                        } else {
+                            console.log('Sandbox payment ready for approval:', paymentId);
+                        }
+                    },
+                    onReadyForServerCompletion: async function(paymentId, txid) {
+                        if (AppState.backendUrl) {
+                            try {
+                                await fetch(`${AppState.backendUrl}/complete`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ paymentId, txid })
+                                });
+                            } catch (err) {
+                                console.error('Server completion error:', err);
+                            }
+                        }
+                        onSuccessCallback();
+                    },
+                    onCancel: function() {
+                        showToast(AppState.lang === 'es' ? 'Transacción Pi cancelada.' : 'Pi transaction cancelled.');
+                    },
+                    onError: function(error) {
+                        console.error('Pi Payment Error:', error);
+                        showToast(AppState.lang === 'es' ? 'Error en pago Pi. Intenta de nuevo.' : 'Pi payment error. Please retry.');
+                    }
+                });
+            } else {
+                // Instant Sandbox / Desktop Preview Simulation
+                showToast(`🧪 Sandbox Pi: Aprobado ${amount} π (${memo})`);
+                setTimeout(() => {
+                    onSuccessCallback();
+                }, 400);
+            }
+        }
+
+        window.purchaseTacticalRevive = function() {
+            triggerPiPayment(0.02, 'The Fallen Vanguard: Tactical Revive', { item: 'revive' }, () => {
+                revivePlayer();
+                playSynthSound('powerup');
+                showToast('⚡ ¡Reanimación Táctica + Onda de Choque activada!');
+            });
+        };
+
+        window.purchasePlasmaPack = function() {
+            triggerPiPayment(0.03, 'Heavy Plasma Rifle & Medkit Pack', { item: 'plasma_pack' }, () => {
+                AppState.plasmaUnlocked = true;
+                AppState.scoreMultiplier = 2;
+                localStorage.setItem('tfv_plasma_unlocked', 'true');
+                weapons[3].ammo += 120;
+                player.hp = player.maxHp;
+                updateProfileUI();
+                selectWeapon(3);
+                updateHUD();
+                closeModal('armoryModal');
+                playSynthSound('powerup');
+                showToast('🔫 ¡Rifle de Plasma + Botiquín + Multiplicador x2!');
+            });
+        };
+
+        window.enterDailyTournament = function() {
+            if (AppState.tournamentEntered) {
+                showToast('✅ Ya estás inscrito en el Torneo Diario de Pi Arena');
+                return;
+            }
+            triggerPiPayment(0.05, 'Pi Arena Daily Tournament Entry Pass', { item: 'tournament_entry' }, () => {
+                AppState.tournamentEntered = true;
+                AppState.scoreMultiplier = 2;
+                document.getElementById('tournamentLabel').textContent = '✅ Inscrito (x2 Pts)';
+                updateHUD();
+                playSynthSound('powerup');
+                showToast('🏆 ¡Pase de Torneo Diario confirmado! Multiplicador x2 activo');
+            });
+        };
+
+        window.claimDailyCheckIn = function() {
+            const today = new Date().toDateString();
+            if (AppState.lastCheckIn === today) {
+                showToast('🎁 Ya reclamaste tu suministro diario hoy. Vuelve mañana.');
+                return;
+            }
+            AppState.lastCheckIn = today;
+            AppState.streak += 1;
+            localStorage.setItem('tfv_last_checkin', today);
+            localStorage.setItem('tfv_streak', AppState.streak.toString());
+            weapons[1].ammo += 20;
+            weapons[2].ammo += 50;
+            updateProfileUI();
+            updateHUD();
+            playSynthSound('powerup');
+            showToast(`🎁 ¡Racha Día ${AppState.streak}! +50 Rifle y +20 Escopeta`);
+        };
+
+        function updateProfileUI() {
+            document.getElementById('pioneerUsernameDisplay').textContent = '@' + AppState.pioneerUsername;
+            document.getElementById('pioneerAvatar').textContent = AppState.pioneerUsername.charAt(0).toUpperCase();
+            document.getElementById('streakCount').textContent = AppState.streak;
+            const today = new Date().toDateString();
+            if (AppState.lastCheckIn === today) {
+                document.getElementById('dailyClaimLabel').textContent = '✅ Reclamado Hoy';
+            }
+            if (AppState.plasmaUnlocked) {
+                document.getElementById('buyPlasmaBtn').textContent = '+120 π (0.03)';
+                document.getElementById('ammo3').textContent = weapons[3].ammo;
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 4. VIRAL SHARE (Pi.openShareDialog + CLIPBOARD) & LEADERBOARD RENDER
+         * ============================================================================
+         */
+        window.shareChallengeLink = function() {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = `${baseUrl}?ref=${encodeURIComponent(AppState.pioneerUsername)}`;
+            const best = Math.max(gameState.score, AppState.highScore);
+            const title = 'The Fallen Vanguard: Pi Arena';
+            const message = `🔥 Hice ${best} puntos en The Fallen Vanguard: Pi Arena. ¿Puedes sobrevivir a la niebla? Entra aquí: ${shareUrl}`;
+
+            // Grant tactical shield bonus on share
+            player.invulnTimer = Math.max(player.invulnTimer, 4000);
+
+            if (AppState.piInitialized && typeof window.Pi !== 'undefined' && typeof window.Pi.openShareDialog === 'function') {
+                try {
+                    window.Pi.openShareDialog(title, message);
+                    showToast('🛡️ ¡Diálogo de Pi abierto! Escudo táctico activado');
+                    return;
+                } catch (err) {
+                    console.warn('Pi.openShareDialog fallback:', err);
+                }
+            }
+            copyTextToClipboard(message, '📋 Enlace de reto copiado + 🛡️ Escudo activado');
+        };
+
+        function copyTextToClipboard(text, successMsg) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMsg);
+            } catch (err) {
+                showToast('Ref: ?ref=' + AppState.pioneerUsername);
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        const SEED_LEADERBOARD = [
+            { name: 'VanguardPrime_Pi', score: 19200, wave: 14, dayKey: new Date().toISOString().slice(0, 10) },
+            { name: 'Lucia_CR', score: 15800, wave: 12, dayKey: new Date().toISOString().slice(0, 10) },
+            { name: 'SilentFog_88', score: 12450, wave: 10, dayKey: new Date().toISOString().slice(0, 10) },
+            { name: 'PioneerHunter', score: 9600, wave: 8, dayKey: '2026-01-01' },
+            { name: 'CryptoNomad_Pi', score: 7100, wave: 7, dayKey: '2026-01-01' }
+        ];
+
+        window.switchLeaderboardTab = function(tab) {
+            AppState.leaderboardTab = tab;
+            document.getElementById('tabDailyBtn').className = tab === 'daily'
+                ? 'py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition'
+                : 'py-1.5 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 transition';
+            document.getElementById('tabAllTimeBtn').className = tab === 'alltime'
+                ? 'py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition'
+                : 'py-1.5 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 transition';
+            renderLeaderboard();
+        };
+
+        function renderLeaderboard() {
+            const listEl = document.getElementById('leaderboardList');
+            const todayKey = new Date().toISOString().slice(0, 10);
+
+            // Merge Seed + Cloud + Local Best
+            const map = new Map();
+            [...SEED_LEADERBOARD, ...AppState.cloudScores].forEach(item => {
+                const prev = map.get(item.name);
+                if (!prev || item.score > prev.score) {
+                    map.set(item.name, item);
+                }
+            });
+
+            const myBest = Math.max(AppState.highScore, gameState.score);
+            if (myBest > 0) {
+                const prevMe = map.get(AppState.pioneerUsername);
+                if (!prevMe || myBest > prevMe.score) {
+                    map.set(AppState.pioneerUsername, {
+                        name: AppState.pioneerUsername,
+                        score: myBest,
+                        wave: Math.max(1, gameState.wave),
+                        dayKey: todayKey
+                    });
+                }
+            }
+
+            let entries = Array.from(map.values());
+            if (AppState.leaderboardTab === 'daily') {
+                entries = entries.filter(e => e.dayKey === todayKey || e.name === AppState.pioneerUsername);
+            }
+            entries.sort((a, b) => b.score - a.score);
+
+            listEl.innerHTML = '';
+            entries.slice(0, 15).forEach((entry, idx) => {
+                const isMe = entry.name === AppState.pioneerUsername;
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                const row = document.createElement('div');
+                row.className = `flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+                    isMe ? 'bg-amber-500/20 border-amber-400' : 'bg-black/50 border-gray-800'
+                }`;
+                row.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <span class="font-tactical font-bold text-sm w-6 text-amber-400">${medal}</span>
+                        <div>
+                            <div class="text-xs sm:text-sm font-semibold ${isMe ? 'text-amber-300' : 'text-white'}">
+                                @${entry.name} ${isMe ? '(Tú)' : ''}
+                            </div>
+                            <div class="text-[10px] text-gray-400">Oleada ${entry.wave}</div>
+                        </div>
+                    </div>
+                    <div class="font-tactical font-bold text-base text-amber-400">${entry.score.toLocaleString()}</div>
+                `;
+                listEl.appendChild(row);
+            });
+        }
+
+        /**
+         * ============================================================================
+         * 5. WEB AUDIO API SYNTHESIZED HORROR & COMBAT SOUND ENGINE
+         * ============================================================================
+         */
+        let audioCtx = null;
+        let audioMuted = false;
+
+        window.toggleAudio = function() {
+            audioMuted = !audioMuted;
+            document.getElementById('audioBtn').textContent = audioMuted ? '🔇' : '🔊';
+        };
+
+        function playSynthSound(type) {
+            if (audioMuted) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                if (type === 'pistol' || type === 'rifle') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(type === 'pistol' ? 220 : 280, now);
+                    osc.frequency.exponentialRampToValueAtTime(45, now + 0.09);
+                    gain.gain.setValueAtTime(0.14, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.09);
+                } else if (type === 'shotgun') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(130, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.18);
+                    gain.gain.setValueAtTime(0.22, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.18);
+                } else if (type === 'plasma') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(780, now);
+                    osc.frequency.exponentialRampToValueAtTime(180, now + 0.15);
+                    gain.gain.setValueAtTime(0.16, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.15);
+                } else if (type === 'hit') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(60, now + 0.06);
+                    gain.gain.setValueAtTime(0.09, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.06);
+                } else if (type === 'reload') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(420, now);
+                    osc.frequency.setValueAtTime(620, now + 0.07);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.14);
+                } else if (type === 'powerup') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(360, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+                    gain.gain.setValueAtTime(0.16, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.25);
+                }
+            } catch (e) {}
+        }
+
+        /**
+         * ============================================================================
+         * 6. SURVIVAL HORROR TOP-DOWN ARENA ENGINE (HTML5 CANVAS)
+         * ============================================================================
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        const weapons = [
+            { name: 'Pistol', fireRate: 240, damage: 30, speed: 14, spread: 0.04, pellets: 1, color: '#fbbf24', mag: 12, maxMag: 12, ammo: Infinity, sfx: 'pistol' },
+            { name: 'Shotgun', fireRate: 660, damage: 24, speed: 13, spread: 0.28, pellets: 6, color: '#f97316', ammo: 24, sfx: 'shotgun' },
+            { name: 'Rifle', fireRate: 110, damage: 21, speed: 16, spread: 0.06, pellets: 1, color: '#38bdf8', ammo: 90, sfx: 'rifle' },
+            { name: 'Plasma', fireRate: 180, damage: 70, speed: 15, spread: 0.02, pellets: 1, color: '#c084fc', ammo: AppState.plasmaUnlocked ? 120 : 0, sfx: 'plasma' }
+        ];
+
+        const gameState = {
+            running: false,
+            paused: false,
+            score: 0,
+            wave: 1,
+            kills: 0,
+            combo: 1,
+            comboTimer: 0,
+            enemiesToSpawn: 6,
+            enemiesSpawned: 0,
+            spawnTimer: 0,
+            screenShake: 0,
+            lastTime: 0
+        };
+
+        const player = {
+            x: width / 2,
+            y: height / 2,
+            radius: 16,
+            speed: 3.5,
+            angle: 0,
+            hp: 100,
+            maxHp: 100,
+            weaponIndex: 0,
+            lastShot: 0,
+            reloading: false,
+            dashCooldown: 0,
+            invulnTimer: 0
+        };
+
+        let bullets = [];
+        let enemies = [];
+        let particles = [];
+        let floatingTexts = [];
+        let pickups = [];
+        let fogWisps = [];
+        let environmentProps = [];
+
+        function initEnvironment() {
+            fogWisps = [];
+            for (let i = 0; i < 20; i++) {
+                fogWisps.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    r: 130 + Math.random() * 190,
+                    vx: (Math.random() - 0.5) * 0.45,
+                    vy: (Math.random() - 0.5) * 0.35,
+                    alpha: 0.045 + Math.random() * 0.06
+                });
+            }
+
+            environmentProps = [];
+            for (let i = 0; i < 15; i++) {
+                environmentProps.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    type: i % 3 === 0 ? 'crater' : i % 3 === 1 ? 'bench' : 'lamp',
+                    angle: Math.random() * Math.PI * 2,
+                    flickerOffset: Math.random() * 100
+                });
+            }
+        }
+
+        const keys = {};
+        const mouse = { x: width / 2, y: height / 2, down: false };
+        const leftStick = { active: false, id: null, startX: 0, startY: 0, currX: 0, currY: 0, dx: 0, dy: 0 };
+        const rightStick = { active: false, id: null, startX: 0, startY: 0, currX: 0, currY: 0, dx: 0, dy: 0 };
+
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (e.code === 'Digit1') selectWeapon(0);
+            if (e.code === 'Digit2') selectWeapon(1);
+            if (e.code === 'Digit3') selectWeapon(2);
+            if (e.code === 'Digit4') handlePlasmaSelect();
+            if (e.code === 'KeyR') reloadPistol();
+            if (e.code === 'Space') triggerTacticalDash();
+        });
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        canvas.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        canvas.addEventListener('mousedown', e => {
+            if (e.button === 0) mouse.down = true;
+        });
+        window.addEventListener('mouseup', () => mouse.down = false);
+
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (t.clientX < width * 0.5 && !leftStick.active) {
+                    leftStick.active = true;
+                    leftStick.id = t.identifier;
+                    leftStick.startX = leftStick.currX = t.clientX;
+                    leftStick.startY = leftStick.currY = t.clientY;
+                } else if (t.clientX >= width * 0.5 && !rightStick.active) {
+                    rightStick.active = true;
+                    rightStick.id = t.identifier;
+                    rightStick.startX = rightStick.currX = t.clientX;
+                    rightStick.startY = rightStick.currY = t.clientY;
+                }
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const maxDist = 48;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (leftStick.active && t.identifier === leftStick.id) {
+                    leftStick.currX = t.clientX;
+                    leftStick.currY = t.clientY;
+                    const distX = leftStick.currX - leftStick.startX;
+                    const distY = leftStick.currY - leftStick.startY;
+                    const dist = Math.hypot(distX, distY);
+                    const clamped = Math.min(dist, maxDist);
+                    const ang = Math.atan2(distY, distX);
+                    leftStick.dx = dist > 5 ? (Math.cos(ang) * clamped) / maxDist : 0;
+                    leftStick.dy = dist > 5 ? (Math.sin(ang) * clamped) / maxDist : 0;
+                } else if (rightStick.active && t.identifier === rightStick.id) {
+                    rightStick.currX = t.clientX;
+                    rightStick.currY = t.clientY;
+                    const distX = rightStick.currX - rightStick.startX;
+                    const distY = rightStick.currY - rightStick.startY;
+                    const dist = Math.hypot(distX, distY);
+                    if (dist > 6) {
+                        rightStick.dx = distX / dist;
+                        rightStick.dy = distY / dist;
+                        player.angle = Math.atan2(distY, distX);
+                    }
+                }
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', e => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (leftStick.active && t.identifier === leftStick.id) {
+                    leftStick.active = false;
+                    leftStick.dx = leftStick.dy = 0;
+                } else if (rightStick.active && t.identifier === rightStick.id) {
+                    rightStick.active = false;
+                    rightStick.dx = rightStick.dy = 0;
+                }
+            }
+        });
+
+        window.selectWeapon = function(idx) {
+            if (idx === 3 && !AppState.plasmaUnlocked) {
+                openModal('armoryModal');
+                return;
+            }
+            player.weaponIndex = idx;
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById('wpnBtn' + i);
+                if (i === idx) {
+                    btn.className = 'px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-amber-500 text-black transition';
+                } else {
+                    btn.className = 'px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-tactical font-bold bg-gray-800/90 text-gray-300 border border-gray-700 transition';
+                }
+            }
+        };
+
+        window.handlePlasmaSelect = function() {
+            if (!AppState.plasmaUnlocked) {
+                openModal('armoryModal');
+            } else {
+                selectWeapon(3);
+            }
+        };
+
+        window.reloadPistol = function() {
+            if (player.reloading || weapons[0].mag === weapons[0].maxMag) return;
+            player.reloading = true;
+            playSynthSound('reload');
+            addFloatingText(player.x, player.y - 24, 'RECARGANDO...', '#fbbf24');
+            setTimeout(() => {
+                weapons[0].mag = weapons[0].maxMag;
+                player.reloading = false;
+                updateHUD();
+            }, 650);
+        };
+
+        window.triggerTacticalDash = function() {
+            if (!gameState.running || gameState.paused || player.dashCooldown > 0) return;
+            player.dashCooldown = 1350;
+            player.invulnTimer = 380;
+            player.x += Math.cos(player.angle) * 68;
+            player.y += Math.sin(player.angle) * 68;
+            player.x = Math.max(24, Math.min(width - 24, player.x));
+            player.y = Math.max(70, Math.min(height - 75, player.y));
+            spawnParticles(player.x, player.y, '#38bdf8', 12);
+        };
+
+        window.startGame = function() {
+            closeModal('menuModal');
+            closeModal('gameOverModal');
+            if (!gameState.running) {
+                resetRunState();
+                gameState.running = true;
+                gameState.lastTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+            gameState.paused = false;
+        };
+
+        window.restartRun = function() {
+            closeModal('gameOverModal');
+            resetRunState();
+            gameState.running = true;
+            gameState.paused = false;
+            gameState.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        };
+
+        function resetRunState() {
+            gameState.score = 0;
+            gameState.wave = 1;
+            gameState.kills = 0;
+            gameState.combo = 1;
+            gameState.comboTimer = 0;
+            gameState.enemiesToSpawn = 6;
+            gameState.enemiesSpawned = 0;
+            player.x = width / 2;
+            player.y = height / 2;
+            player.hp = 100;
+            player.weaponIndex = 0;
+            player.reloading = false;
+            player.invulnTimer = AppState.referralBonusActive ? 5000 : 0;
+            weapons[0].mag = 12;
+            weapons[1].ammo = AppState.referralBonusActive ? 36 : 24;
+            weapons[2].ammo = AppState.referralBonusActive ? 130 : 90;
+            if (AppState.plasmaUnlocked) weapons[3].ammo = 120;
+            bullets = [];
+            enemies = [];
+            particles = [];
+            floatingTexts = [];
+            pickups = [];
+            initEnvironment();
+            selectWeapon(0);
+            updateHUD();
+        }
+
+        function revivePlayer() {
+            closeModal('gameOverModal');
+            player.hp = player.maxHp;
+            player.invulnTimer = 2800;
+            enemies.forEach(en => {
+                const dist = Math.hypot(en.x - player.x, en.y - player.y);
+                if (dist < 260) {
+                    en.hp -= 95;
+                    const ang = Math.atan2(en.y - player.y, en.x - player.x);
+                    en.x += Math.cos(ang) * 105;
+                    en.y += Math.sin(ang) * 105;
+                }
+            });
+            spawnParticles(player.x, player.y, '#f5a623', 38);
+            gameState.screenShake = 15;
+            gameState.running = true;
+            gameState.paused = false;
+            gameState.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnEnemy() {
+            const edge = Math.floor(Math.random() * 4);
+            let ex = 0, ey = 0;
+            if (edge === 0) { ex = Math.random() * width; ey = -30; }
+            else if (edge === 1) { ex = width + 30; ey = Math.random() * height; }
+            else if (edge === 2) { ex = Math.random() * width; ey = height + 30; }
+            else { ex = -30; ey = Math.random() * height; }
+
+            const roll = Math.random();
+            let type = 'shambler';
+            let hp = 45 + gameState.wave * 12;
+            let speed = 1.15 + Math.min(1.25, gameState.wave * 0.08);
+            let radius = 15;
+            let color = '#4b5563';
+            let points = 100;
+
+            if (gameState.wave >= 2 && roll > 0.68) {
+                type = 'stalker';
+                hp = 34 + gameState.wave * 8;
+                speed = 2.2 + Math.min(1.4, gameState.wave * 0.09);
+                radius = 12;
+                color = '#dc2626';
+                points = 150;
+            } else if (gameState.wave >= 3 && roll < 0.22) {
+                type = 'brute';
+                hp = 145 + gameState.wave * 32;
+                speed = 0.88;
+                radius = 23;
+                color = '#1f2937';
+                points = 300;
+            }
+
+            enemies.push({ x: ex, y: ey, hp, maxHp: hp, speed, radius, color, type, points, hitFlash: 0 });
+        }
+
+        function fireWeapon(now) {
+            const wpn = weapons[player.weaponIndex];
+            if (now - player.lastShot < wpn.fireRate) return;
+
+            if (player.weaponIndex === 0) {
+                if (player.reloading) return;
+                if (wpn.mag <= 0) {
+                    reloadPistol();
+                    return;
+                }
+                wpn.mag--;
+                updateHUD();
+            } else {
+                if (wpn.ammo <= 0) {
+                    selectWeapon(0);
+                    return;
+                }
+                wpn.ammo--;
+                updateHUD();
+            }
+
+            player.lastShot = now;
+            playSynthSound(wpn.sfx);
+
+            for (let i = 0; i < wpn.pellets; i++) {
+                const spreadAngle = player.angle + (Math.random() - 0.5) * wpn.spread;
+                bullets.push({
+                    x: player.x + Math.cos(player.angle) * 20,
+                    y: player.y + Math.sin(player.angle) * 20,
+                    vx: Math.cos(spreadAngle) * wpn.speed,
+                    vy: Math.sin(spreadAngle) * wpn.speed,
+                    damage: wpn.damage,
+                    color: wpn.color,
+                    pierce: player.weaponIndex === 3 ? 2 : 0,
+                    life: 65
+                });
+            }
+
+            gameState.screenShake = Math.max(gameState.screenShake, player.weaponIndex === 1 ? 6.5 : 2.5);
+            spawnParticles(
+                player.x + Math.cos(player.angle) * 22,
+                player.y + Math.sin(player.angle) * 22,
+                wpn.color,
+                4
+            );
+        }
+
+        function spawnParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const spd = 1 + Math.random() * 4;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(ang) * spd,
+                    vy: Math.sin(ang) * spd,
+                    color,
+                    alpha: 1,
+                    size: 2 + Math.random() * 3
+                });
+            }
+        }
+
+        function addFloatingText(x, y, text, color) {
+            floatingTexts.push({ x, y, text, color, alpha: 1, vy: -1.1 });
+        }
+
+        function update(dt, now) {
+            if (gameState.paused) return;
+
+            if (player.dashCooldown > 0) player.dashCooldown -= dt;
+            if (player.invulnTimer > 0) player.invulnTimer -= dt;
+            if (gameState.screenShake > 0) gameState.screenShake *= 0.85;
+            if (gameState.comboTimer > 0) {
+                gameState.comboTimer -= dt;
+                if (gameState.comboTimer <= 0) {
+                    gameState.combo = 1;
+                    updateHUD();
+                }
+            }
+
+            let moveX = leftStick.dx;
+            let moveY = leftStick.dy;
+            if (keys['KeyW'] || keys['ArrowUp']) moveY -= 1;
+            if (keys['KeyS'] || keys['ArrowDown']) moveY += 1;
+            if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+            if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+            const moveLen = Math.hypot(moveX, moveY);
+            if (moveLen > 0) {
+                moveX = (moveX / Math.max(1, moveLen)) * player.speed;
+                moveY = (moveY / Math.max(1, moveLen)) * player.speed;
+                player.x = Math.max(24, Math.min(width - 24, player.x + moveX));
+                player.y = Math.max(70, Math.min(height - 75, player.y + moveY));
+            }
+
+            if (!rightStick.active && (mouse.x !== 0 || mouse.y !== 0) && !('ontouchstart' in window)) {
+                player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+            }
+            if (mouse.down || rightStick.active) {
+                fireWeapon(now);
+            }
+
+            if (gameState.enemiesSpawned < gameState.enemiesToSpawn) {
+                gameState.spawnTimer -= dt;
+                if (gameState.spawnTimer <= 0) {
+                    spawnEnemy();
+                    gameState.enemiesSpawned++;
+                    gameState.spawnTimer = Math.max(360, 1300 - gameState.wave * 95);
+                }
+            } else if (enemies.length === 0) {
+                gameState.wave++;
+                gameState.enemiesToSpawn = 6 + gameState.wave * 3;
+                gameState.enemiesSpawned = 0;
+                player.hp = Math.min(player.maxHp, player.hp + 20);
+                addFloatingText(player.x, player.y - 30, `OLEADA ${gameState.wave}`, '#f5a623');
+                updateHUD();
+            }
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                b.life--;
+                if (b.life <= 0 || b.x < 0 || b.x > width || b.y < 0 || b.y > height) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const en = enemies[i];
+                if (en.hitFlash > 0) en.hitFlash -= dt;
+
+                const ang = Math.atan2(player.y - en.y, player.x - en.x);
+                en.x += Math.cos(ang) * en.speed;
+                en.y += Math.sin(ang) * en.speed;
+
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const b = bullets[j];
+                    const dist = Math.hypot(en.x - b.x, en.y - b.y);
+                    if (dist < en.radius + 5) {
+                        en.hp -= b.damage;
+                        en.hitFlash = 90;
+                        playSynthSound('hit');
+                        spawnParticles(b.x, b.y, '#ef4444', 5);
+                        addFloatingText(en.x, en.y - 12, `-${b.damage}`, '#fbbf24');
+
+                        if (b.pierce > 0) {
+                            b.pierce--;
+                        } else {
+                            bullets.splice(j, 1);
+                        }
+                        break;
+                    }
+                }
+
+                if (en.hp <= 0) {
+                    gameState.combo = Math.min(8, gameState.combo + 1);
+                    gameState.comboTimer = 2800;
+                    const mult = AppState.scoreMultiplier * gameState.combo;
+                    gameState.score += en.points * mult;
+                    gameState.kills++;
+                    spawnParticles(en.x, en.y, '#991b1b', 14);
+
+                    if (Math.random() < 0.25) {
+                        pickups.push({
+                            x: en.x,
+                            y: en.y,
+                            type: Math.random() < 0.45 ? 'medkit' : 'ammo',
+                            life: 900
+                        });
+                    }
+
+                    enemies.splice(i, 1);
+                    updateHUD();
+                    continue;
+                }
+
+                const pDist = Math.hypot(en.x - player.x, en.y - player.y);
+                if (pDist < en.radius + player.radius && player.invulnTimer <= 0) {
+                    player.hp -= en.type === 'brute' ? 22 : 12;
+                    player.invulnTimer = 550;
+                    gameState.combo = 1;
+                    gameState.screenShake = 10;
+                    spawnParticles(player.x, player.y, '#dc2626', 10);
+                    updateHUD();
+
+                    if (player.hp <= 0) {
+                        handleGameOver();
+                        return;
+                    }
+                }
+            }
+
+            for (let i = pickups.length - 1; i >= 0; i--) {
+                const p = pickups[i];
+                p.life--;
+                if (p.life <= 0) {
+                    pickups.splice(i, 1);
+                    continue;
+                }
+                if (Math.hypot(p.x - player.x, p.y - player.y) < player.radius + 16) {
+                    playSynthSound('powerup');
+                    if (p.type === 'medkit') {
+                        player.hp = Math.min(player.maxHp, player.hp + 25);
+                        addFloatingText(player.x, player.y - 20, '+25 HP', '#34d399');
+                    } else {
+                        weapons[1].ammo += 8;
+                        weapons[2].ammo += 25;
+                        addFloatingText(player.x, player.y - 20, '+MUNICIÓN', '#38bdf8');
+                    }
+                    updateHUD();
+                    pickups.splice(i, 1);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const pt = particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.alpha -= 0.035;
+                if (pt.alpha <= 0) particles.splice(i, 1);
+            }
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.vy;
+                ft.alpha -= 0.025;
+                if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+            }
+
+            fogWisps.forEach(f => {
+                f.x = (f.x + f.vx + width) % width;
+                f.y = (f.y + f.vy + height) % height;
+            });
+        }
+
+        function draw() {
+            ctx.save();
+            if (gameState.screenShake > 0.5) {
+                ctx.translate((Math.random() - 0.5) * gameState.screenShake, (Math.random() - 0.5) * gameState.screenShake);
+            }
+
+            ctx.fillStyle = '#0b0e13';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+            ctx.lineWidth = 1;
+            const tileSize = 64;
+            for (let x = 0; x < width; x += tileSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += tileSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            environmentProps.forEach(prop => {
+                ctx.save();
+                ctx.translate(prop.x, prop.y);
+                ctx.rotate(prop.angle);
+                if (prop.type === 'crater') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.48)';
+                    ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
+                } else if (prop.type === 'bench') {
+                    ctx.fillStyle = '#1e222b';
+                    ctx.fillRect(-20, -6, 40, 12);
+                } else {
+                    const flicker = 0.11 + Math.sin(performance.now() * 0.015 + prop.flickerOffset) * 0.04;
+                    const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, 80);
+                    grad.addColorStop(0, `rgba(245, 166, 35, ${flicker})`);
+                    grad.addColorStop(1, 'rgba(245, 166, 35, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath(); ctx.arc(0, 0, 80, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.restore();
+            });
+
+            // Flashlight Cone
+            ctx.save();
+            const coneGrad = ctx.createRadialGradient(player.x, player.y, 12, player.x, player.y, 350);
+            coneGrad.addColorStop(0, 'rgba(255, 244, 214, 0.25)');
+            coneGrad.addColorStop(1, 'rgba(255, 244, 214, 0)');
+            ctx.fillStyle = coneGrad;
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y);
+            ctx.arc(player.x, player.y, 350, player.angle - 0.42, player.angle + 0.42);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            pickups.forEach(p => {
+                ctx.fillStyle = p.type === 'medkit' ? '#10b981' : '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 10px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.type === 'medkit' ? '+' : 'A', p.x, p.y + 3.5);
+            });
+
+            bullets.forEach(b => {
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            enemies.forEach(en => {
+                ctx.save();
+                ctx.translate(en.x, en.y);
+                ctx.fillStyle = en.hitFlash > 0 ? '#ffffff' : en.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, en.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                if (en.hp < en.maxHp) {
+                    const bw = en.radius * 2;
+                    ctx.fillStyle = '#111827';
+                    ctx.fillRect(-en.radius, -en.radius - 9, bw, 4);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(-en.radius, -en.radius - 9, bw * (en.hp / en.maxHp), 4);
+                }
+                ctx.restore();
+            });
+
+            // Protagonist Lucía
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            if (player.invulnTimer > 0) {
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, player.radius + 5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#f5a623';
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(6, -4, 16, 8);
+            ctx.restore();
+
+            particles.forEach(pt => {
+                ctx.globalAlpha = pt.alpha;
+                ctx.fillStyle = pt.color;
+                ctx.fillRect(pt.x, pt.y, pt.size, pt.size);
+            });
+            ctx.globalAlpha = 1;
+
+            floatingTexts.forEach(ft => {
+                ctx.globalAlpha = ft.alpha;
+                ctx.fillStyle = ft.color;
+                ctx.font = 'bold 13px Rajdhani';
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+            });
+            ctx.globalAlpha = 1;
+
+            fogWisps.forEach(f => {
+                const fg = ctx.createRadialGradient(f.x, f.y, 10, f.x, f.y, f.r);
+                fg.addColorStop(0, `rgba(180, 190, 205, ${f.alpha})`);
+                fg.addColorStop(1, 'rgba(180, 190, 205, 0)');
+                ctx.fillStyle = fg;
+                ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
+            });
+
+            const vig = ctx.createRadialGradient(width / 2, height / 2, width * 0.25, width / 2, height / 2, width * 0.72);
+            vig.addColorStop(0, 'rgba(0,0,0,0)');
+            vig.addColorStop(1, 'rgba(0,0,0,0.8)');
+            ctx.fillStyle = vig;
+            ctx.fillRect(0, 0, width, height);
+
+            if (leftStick.active) drawJoystick(leftStick.startX, leftStick.startY, leftStick.currX, leftStick.currY, '#f5a623');
+            if (rightStick.active) drawJoystick(rightStick.startX, rightStick.startY, rightStick.currX, rightStick.currY, '#ef4444');
+
+            ctx.restore();
+        }
+
+        function drawJoystick(sx, sy, cx, cy, color) {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.45;
+            ctx.beginPath(); ctx.arc(sx, sy, 46, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = color;
+            ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+
+        function gameLoop(now) {
+            if (!gameState.running) return;
+            const dt = now - gameState.lastTime;
+            gameState.lastTime = now;
+
+            update(dt, now);
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateHUD() {
+            const waveWord = AppState.lang === 'es' ? 'OLEADA' : 'WAVE';
+            const killWord = AppState.lang === 'es' ? 'BAJAS' : 'KILLS';
+            document.getElementById('hudWave').textContent = `${waveWord} ${gameState.wave}`;
+            document.getElementById('hudKills').textContent = `${gameState.kills} ${killWord}`;
+            document.getElementById('hudScore').textContent = gameState.score.toLocaleString();
+            document.getElementById('hudHealthBar').style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+            document.getElementById('ammo0').textContent = `${weapons[0].mag} / ∞`;
+            document.getElementById('ammo1').textContent = weapons[1].ammo;
+            document.getElementById('ammo2').textContent = weapons[2].ammo;
+            if (AppState.plasmaUnlocked) {
+                document.getElementById('ammo3').textContent = weapons[3].ammo;
+            }
+            const totalMult = AppState.scoreMultiplier * gameState.combo;
+            const comboBadge = document.getElementById('hudComboBadge');
+            if (totalMult > 1) {
+                comboBadge.textContent = `x${totalMult}`;
+                comboBadge.classList.remove('hidden');
+            } else {
+                comboBadge.classList.add('hidden');
+            }
+        }
+
+        function handleGameOver() {
+            gameState.running = false;
+            if (gameState.score > AppState.highScore) {
+                AppState.highScore = gameState.score;
+                localStorage.setItem('tfv_highscore', AppState.highScore.toString());
+            }
+            publishScoreToCloud(gameState.score, gameState.wave, gameState.kills);
+            document.getElementById('finalScore').textContent = gameState.score.toLocaleString();
+            document.getElementById('finalWave').textContent = gameState.wave;
+            document.getElementById('finalKills').textContent = gameState.kills;
+            openModal('gameOverModal');
+        }
+
+        /**
+         * ============================================================================
+         * 7. MODAL & TOAST HELPERS
+         * ============================================================================
+         */
+        window.openModal = function(id) {
+            if (id === 'leaderboardModal') renderLeaderboard();
+            if (gameState.running) gameState.paused = true;
+            const el = document.getElementById(id);
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        };
+
+        window.closeModal = function(id) {
+            const el = document.getElementById(id);
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+            if (gameState.running &&
+                document.getElementById('menuModal').classList.contains('hidden') &&
+                document.getElementById('armoryModal').classList.contains('hidden') &&
+                document.getElementById('leaderboardModal').classList.contains('hidden') &&
+                document.getElementById('gameOverModal').classList.contains('hidden') &&
+                document.getElementById('devModal').classList.contains('hidden')) {
+                gameState.paused = false;
+                gameState.lastTime = performance.now();
+            }
+        };
+
+        let toastTimeout = null;
+        function showToast(msg) {
+            const box = document.getElementById('toastBox');
+            document.getElementById('toastMessage').textContent = msg;
+            box.classList.remove('opacity-0');
+            box.classList.add('opacity-100');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                box.classList.remove('opacity-100');
+                box.classList.add('opacity-0');
+            }, 3400);
+        }
+
+        // Boot Initialization
+        window.onload = function() {
+            applyTranslations();
+            initPiNetwork();
+            initCloudPersistence();
+            initEnvironment();
+            draw();
+            if (AppState.referralBonusActive) {
+                showToast(`🎁 Bono de Referido de @${refParam}: +50% Munición y Escudo inicial!`);
+            }
+        };
+    </script>
+</body>
+</html>
